@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Game Monetization Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+
+    <h1>Monetization Dashboard</h1>
+
+    <div id="dashboard-container">
+        
+        <div id="left-column">
+            <div class="chart-container">
+                <h2>User Spending vs. Age</h2>
+                <div id="scatter-plot-vis" class="chart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <h2>Spending Trend by Age</h2>
+                <div id="line-graph-vis" class="chart"></div>
+            </div>
+        </div>
+
+        <div id="right-column">
+            <div class="chart-container">
+                <h2>Revenue by Genre & Segment</h2>
+                <div id="stacked-bar-vis" class="chart"></div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Spending by Gender & Genre</h2>
+                <div id="grouped-bar-vis" class="chart"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module" src="scripts/main.js"></script>
+
+</body>
+</html>
