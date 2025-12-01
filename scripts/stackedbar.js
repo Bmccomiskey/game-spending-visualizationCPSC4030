@@ -12,7 +12,7 @@ export function drawStackedBar(data, selector, onGenreClick) {
     const bounds = container.node().getBoundingClientRect();
     const width = bounds.width - margin.left - margin.right;
     const height = bounds.height - margin.top - margin.bottom;
-    heightGlobal = height; // save for overlay
+    heightGlobal = Math.max(0, height); // save for overlay
 
     const cleanData = data.filter(d => {
         const g = (d.GameGenre || "").trim().toLowerCase();
@@ -219,7 +219,10 @@ export function updateStackedBarActiveSegment(activeSegment) {
         .attr("x", d => xGlobal(d.GameGenre))
         .attr("width", xGlobal.bandwidth())
         .attr("y", d => yGlobal(d[segment]))
-        .attr("height", d => heightGlobal - yGlobal(d[segment]))
+        .attr("height", d => {
+            const h = heightGlobal - yGlobal(d[segment]);
+            return h > 0 ? h : 0;  // clamp at 0 to avoid negative height
+        })
         .attr("fill", colorGlobal(segment))
         .attr("data-segment-mark", segment);
 
