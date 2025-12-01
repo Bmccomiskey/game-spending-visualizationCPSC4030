@@ -1,61 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mobile Game Monetization Dashboard</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-    <h1>Mobile Game Monetization Dashboard</h1>
-    
-    <div id="legend">
-        <div class="legend-item">
-            <span class="legend-swatch" style="background-color: #e15759;"></span>
-            <label>Whale</label>
-        </div>
-        <div class="legend-item">
-            <span class="legend-swatch" style="background-color: #4e79a7;"></span>
-            <label>Dolphin</label>
-        </div>
-        <div class="legend-item">
-            <span class="legend-swatch" style="background-color: #f28e2c;"></span>
-            <label>Minnow</label>
-        </div>
+    <header id="page-header">
+        <h1>Mobile Game Monetization Dashboard</h1>
+        <p class="subtitle">
+            Exploring whale, dolphin, and minnow spending patterns across age and genre.
+        </p>
+    </header>
+
+    <div id="layout">
+
+        <aside id="sidebar">
+            <h2 class="sidebar-title">Legend</h2>
+
+            <div id="legend">
+                <div class="legend-item" data-segment="Whale">
+                    <span class="legend-swatch whale"></span>
+                    <label>Whale</label>
+                </div>
+                <div class="legend-item" data-segment="Dolphin">
+                    <span class="legend-swatch dolphin"></span>
+                    <label>Dolphin</label>
+                </div>
+                <div class="legend-item" data-segment="Minnow">
+                    <span class="legend-swatch minnow"></span>
+                    <label>Minnow</label>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+            <h3>Filters</h3>
+            <p class="sidebar-caption">
+                - Click one or more genres in the bar chart to filter the scatterplot and trend line.
+            </p>
+            <p class="sidebar-caption">
+                - Hover over the legend to focus Whales, Dolphins, or Minnows.
+            </p>
+
+            <p class="sidebar-label">
+                <strong>Genres:</strong>
+                <span id="genre-filter-label">All genres</span>
+            </p>
+
+            <p class="sidebar-label">
+                <strong>Segment:</strong>
+                <span id="segment-filter-label">All segments</span>
+            </p>
+
+            <button id="clear-filters-btn" class="sidebar-button">
+                Clear genre filters
+            </button>
+            </div>
+        </aside>
+
+        <main id="main-content">
+
+            <section class="section">
+                <div class="chart-container chart-tall">
+                    <h2>User Spending vs. Age</h2>
+                    <div id="scatter-plot-vis" class="chart"></div>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="chart-grid-two">
+                    <div class="chart-container">
+                        <h2>Revenue by Genre &amp; Segment</h2>
+                        <div id="stacked-bar-vis" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h2>Spending Trend by Age</h2>
+                        <div id="line-graph-vis" class="chart"></div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
     </div>
-
-    <div id="dashboard-container">
-        
-        <div id="left-column">
-            <div class="chart-container">
-                <h2>User Spending vs. Age</h2>
-                <div id="scatter-plot-vis" class="chart"></div>
-            </div>
-            
-            <div class="chart-container">
-                <h2>Spending Trend by Age</h2>
-                <div id="line-graph-vis" class="chart"></div>
-            </div>
-        </div>
-
-        <div id="right-column">
-            <div class="chart-container">
-                <h2>Revenue by Genre & Segment</h2>
-                <div id="stacked-bar-vis" class="chart"></div>
-            </div>
-
-            <div class="chart-container">
-                <h2>Spending by Gender & Genre</h2>
-                <div id="grouped-bar-vis" class="chart"></div>
-            </div>
-        </div>
-
-    </div>
+    <div id="tooltip" class="tooltip" style="opacity: 0;"></div>
 
     <script type="module" src="scripts/main.js"></script>
-
 </body>
 </html>
