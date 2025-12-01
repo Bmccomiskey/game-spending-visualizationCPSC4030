@@ -12,6 +12,9 @@ export function drawScatterPlot(data, selector) {
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
+    const tooltip = d3.select("#tooltip");
+    const formatDollar = d3.format(",.2f");
+
     //filters out null values and ages below 10
     const filteredData = data.filter(d => d.Age >= 10 && d.InAppPurchaseAmount > 0);
 
@@ -26,8 +29,8 @@ export function drawScatterPlot(data, selector) {
         .clamp(true);
 
     const color = d3.scaleOrdinal()
-        .domain(["Minnow", "Dolphin", "Whale"])
-        .range(["#f28e2c", "#4e79a7", "#e15759"]); // Orange, Blue, Red
+        .domain(["Whale", "Dolphin", "Minnow"])
+        .range(["#e15759", "#4e79a7", "#f28e2c"]); // Whale=red, Dolphin=blue, Minnow=orange
 
     //x axis
     svg.append("g")
@@ -68,11 +71,36 @@ export function drawScatterPlot(data, selector) {
         .selectAll("circle")
         .data(filteredData)
         .join("circle")
+            .attr("class", "scatter-point")
             .attr("cx", d => x(d.Age) + (Math.random() * jitterWidth - (jitterWidth / 2)))
             .attr("cy", d => y(d.InAppPurchaseAmount))
             .attr("r", 3.5)
             .style("fill", d => color(d.SpendingSegment))
             .style("opacity", 0.7)
             .style("stroke", "white")
-            .style("stroke-width", 0.5);
+            .style("stroke-width", 0.5)
+            .attr("data-segment-mark", d => d.SpendingSegment)
+            .attr("data-default-opacity", 0.7)
+            //hover tool tips
+            .on("mouseover", (event, d) => {
+                tooltip
+                    .style("opacity", 1)
+                    .html(
+                        `<strong>Segment:</strong> ${d.SpendingSegment}<br/>
+                         <strong>Age:</strong> ${d.Age}<br/>
+                         <strong>Genre:</strong> ${d.GameGenre}<br/>
+                         <strong>Spending:</strong> $${formatDollar(d.InAppPurchaseAmount)}`
+                    );
+            })
+            .on("mousemove", (event) => {
+                const x = event.clientX + window.scrollX;
+                const y = event.clientY + window.scrollY;
+
+                tooltip
+                    .style("left", (x + 12) + "px")
+                    .style("top", (y - 28) + "px");
+            })
+            .on("mouseleave", () => {
+                tooltip.style("opacity", 0);
+            });
 }

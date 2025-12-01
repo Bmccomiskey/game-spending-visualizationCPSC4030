@@ -1,105 +1,226 @@
-
 const margin = { top: 20, right: 30, bottom: 80, left: 60 };
 
+let aggregatedDataGlobal = null;
+let xGlobal = null;
+let yGlobal = null;
+let colorGlobal = null;
+let heightGlobal = null;
+let overlayGroupGlobal = null;
 
-export function drawStackedBar(data, selector) {
+export function drawStackedBar(data, selector, onGenreClick) {
     const container = d3.select(selector);
     const bounds = container.node().getBoundingClientRect();
     const width = bounds.width - margin.left - margin.right;
     const height = bounds.height - margin.top - margin.bottom;
+    heightGlobal = height; // save for overlay
+
+    const cleanData = data.filter(d => {
+        const g = (d.GameGenre || "").trim().toLowerCase();
+        return g !== "" && g !== "null";
+    });
 
     const svg = container.append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
-    
-    const groupedData = d3.rollup(data,
+
+    const tooltip = d3.select("#tooltip");
+    const formatDollar = d3.format(",.2f");
+
+    const stackOrder = ["Minnow", "Dolphin", "Whale"]; // default stack order
+
+    const byGenreSegment = d3.rollup(
+        cleanData,
         v => d3.sum(v, d => d.InAppPurchaseAmount),
-        d => d.GameGenre, //group by genre
-        d => d.SpendingSegment  //group by spendingsegment
+        d => d.GameGenre,
+        d => d.SpendingSegment
     );
 
-    const stackKeys = ["Whale", "Dolphin", "Minnow"];
-    const genres = Array.from(groupedData.keys()).sort();
+    const aggregatedData = Array.from(byGenreSegment, ([genre, segMap]) => ({
+        GameGenre: genre,
+        Whale: segMap.get("Whale") || 0,
+        Dolphin: segMap.get("Dolphin") || 0,
+        Minnow: segMap.get("Minnow") || 0
+    })).sort((a, b) => d3.ascending(a.GameGenre, b.GameGenre));
 
-    //convert into an array of objects that stack() can use
-    const aggregatedData = [];
-    for (const genre of genres) {
-        const entry = { GameGenre: genre };
-        const segmentMap = groupedData.get(genre);
-        
-        for (const key of stackKeys) {
-            entry[key] = segmentMap.get(key) || 0; //0 if segment doesn't exist for that genre
-        }
-        aggregatedData.push(entry);
-    }
+    aggregatedDataGlobal = aggregatedData; // save for overlay
 
-    //create the stacks
-    const stack = d3.stack()
-        .keys(stackKeys)
-        .order(d3.stackOrderNone)
-        .offset(d3.stackOffsetNone);
-
-    const series = stack(aggregatedData);
-    
+    //scales & axes
     const x = d3.scaleBand()
-        .domain(genres)
+        .domain(aggregatedData.map(d => d.GameGenre))
         .range([0, width])
-        .padding(0.1);
+        .padding(0.2);
 
     const y = d3.scaleLinear()
-        .domain([0, d3.max(series, d => d3.max(d, d => d[1]))])
-        .range([height, 0])
-        .nice(); //rounds to nice numbers
+        .domain([
+            0,
+            d3.max(aggregatedData, d => d.Whale + d.Dolphin + d.Minnow)
+        ])
+        .nice()
+        .range([height, 0]);
+
+    xGlobal = x;
+    yGlobal = y;
 
     const color = d3.scaleOrdinal()
-        .domain(stackKeys)
-        .range(["#e15759", "#f28e2c", "#4e79a7"]); // Red, Orange, Blue
+        .domain(stackOrder)
+        .range(["#f28e2c", "#4e79a7", "#e15759"]); // Minnow, Dolphin, Whale
+    colorGlobal = color;
 
-    //x-axis
     svg.append("g")
-        .attr("transform", `translate(0, ${height})`)
+        .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x))
         .selectAll("text")
-            .style("text-anchor", "end")
-            .attr("dx", "-.8em")
-            .attr("dy", ".15em")
-            .attr("transform", "rotate(-45)");
-    
-    //ticks and grid lines
+        .attr("transform", "rotate(45)")
+        .style("text-anchor", "start")
+        .attr("dx", "0.4em")
+        .attr("dy", "0.2em");
+
     svg.append("g")
-        .call(d3.axisLeft(y)
-            .tickFormat(d3.format("~s"))
-        )
+        .call(d3.axisLeft(y).tickFormat(d3.format("~s")))
         .selectAll(".tick line")
         .clone()
         .attr("x2", width)
         .attr("stroke-opacity", 0.1);
 
-    //y-axis label
     svg.append("text")
+        .attr("x", -height / 2)
+        .attr("y", -margin.left + 15)
         .attr("transform", "rotate(-90)")
-        .attr("y", 0 - margin.left + 15)
-        .attr("x", 0 - (height / 2))
-        .style("text-anchor", "middle")
-        .style("font-size", "14px")
-        .text("In-App Purchase Amount ($)");
-    
-    //draw the bars
-    // d[1] is the top
-    // d[0] is bottom
-    // y(d[0]) - y(d[1]) is height
-    svg.append("g")
-        .selectAll("g")
-        .data(series)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 11)
+        .text("In-App Purchases Amount ($)");
+
+    //base stacked bars (context)
+    const stackGen = d3.stack().keys(stackOrder);
+    const series = stackGen(aggregatedData);
+
+    const layersGroup = svg.append("g").attr("class", "stack-base");
+
+    const segmentGroups = layersGroup
+        .selectAll("g.segment-layer")
+        .data(series, d => d.key)
         .join("g")
-            .attr("fill", d => color(d.key))
-        .selectAll("rect")
-        .data(d => d)
-        .join("rect")
+        .attr("class", "segment-layer")
+        .attr("fill", d => color(d.key));
+
+    segmentGroups.each(function (seriesItem) {
+        const segmentKey = seriesItem.key;
+        const g = d3.select(this);
+
+        const rects = g.selectAll("rect")
+            .data(seriesItem, d => d.data.GameGenre)
+            .join("rect")
+            .attr("class", "base-rect")
             .attr("x", d => x(d.data.GameGenre))
+            .attr("width", x.bandwidth())
             .attr("y", d => y(d[1]))
-            .attr("height", d => y(d[0]) - y(d[1])) 
-            .attr("width", x.bandwidth());
+            .attr("height", d => y(d[0]) - y(d[1]))
+            // tag for cross-chart highlighting
+            .attr("data-segment-mark", segmentKey)
+            .attr("data-default-opacity", 1)
+            .attr("data-genre", d => d.data.GameGenre)
+            .on("click", function (event, d) {
+                if (onGenreClick) {
+                    onGenreClick(d.data.GameGenre);
+                }
+            })
+            // tooltips
+            .on("mouseover", function (event, d) {
+                const genre = d.data.GameGenre;
+                const value = d.data[segmentKey] || 0;
+
+                tooltip
+                    .style("opacity", 1)
+                    .html(
+                        `<strong>Genre:</strong> ${genre}<br/>
+                         <strong>Segment:</strong> ${segmentKey}<br/>
+                         <strong>Total Revenue:</strong> $${formatDollar(value)}`
+                    );
+            })
+            .on("mousemove", (event) => {
+                const xPos = event.clientX + window.scrollX;
+                const yPos = event.clientY + window.scrollY;
+                tooltip
+                    .style("left", (xPos + 12) + "px")
+                    .style("top", (yPos - 28) + "px");
+            })
+            .on("mouseleave", () => {
+                tooltip.style("opacity", 0);
+            });
+    });
+
+    //overlay group for "active" segment at x-axis
+    overlayGroupGlobal = svg.append("g").attr("class", "segment-overlay");
+}
+
+/**
+ * Draws an overlay bar for the active segment that sits on the x-axis
+ * (like a normal bar chart), while the stacked bars stay in the background.
+ */
+export function updateStackedBarActiveSegment(activeSegment) {
+
+    if (!overlayGroupGlobal || !aggregatedDataGlobal || !xGlobal || !yGlobal || !colorGlobal) {
+        return;
+    }
+
+    const overlay = overlayGroupGlobal;
+    const baseGroup = d3.select(".stack-base"); // the original stacked bars
+
+    // Clear any previous overlay bars
+
+    //no active segment: remove overlay
+    if (!activeSegment) {
+        baseGroup
+            .transition()
+            .duration(250)
+            .style("opacity", 1);
+
+        overlay.selectAll("rect")
+            .transition()
+            .duration(200)
+            .attr("height", 0)
+            .attr("y", yGlobal(0))
+            .remove();
+
+        return;
+    }
+
+    //hide stacked bars smoothly when a segment is active
+    baseGroup
+        .transition()
+        .duration(250)
+        .style("opacity", 0);
+
+    const segment = activeSegment;
+
+    const overlayRects = overlay.selectAll("rect")
+        .data(aggregatedDataGlobal, d => d.GameGenre);
+
+    const overlayEnter = overlayRects.enter()
+        .append("rect")
+        .attr("class", "overlay-rect")
+        .attr("x", d => xGlobal(d.GameGenre))
+        .attr("width", xGlobal.bandwidth())
+        .attr("y", yGlobal(0))
+        .attr("height", 0)
+        .attr("fill", colorGlobal(segment))
+        .attr("opacity", 0.95)
+        .attr("pointer-events", "none")
+        .attr("data-segment-mark", segment)
+        .attr("data-default-opacity", 0.95);
+
+    overlayRects.exit().remove();
+
+    overlayEnter.merge(overlayRects)
+        .transition()
+        .duration(250)
+        .attr("x", d => xGlobal(d.GameGenre))
+        .attr("width", xGlobal.bandwidth())
+        .attr("y", d => yGlobal(d[segment]))
+        .attr("height", d => heightGlobal - yGlobal(d[segment]))
+        .attr("fill", colorGlobal(segment))
+        .attr("data-segment-mark", segment);
+
 }

@@ -12,6 +12,9 @@ export function drawLineGraph(data, selector) {
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
     
+    const tooltip = d3.select("#tooltip");
+    const formatDollar = d3.format(",.2f");
+    
     //get total spending per spendingsegment
     const segmentTotals = d3.rollup(data,
         v => d3.sum(v, d => d.InAppPurchaseAmount),
@@ -121,39 +124,101 @@ export function drawLineGraph(data, selector) {
         .y(d => y(d.totalAll))
         .defined(d => d.totalAll !== undefined && !isNaN(d.totalAll));
 
+    const segmentToField = {
+        "Whale": "totalWhale",
+        "Dolphin": "totalDolphin",
+        "Minnow": "totalMinnow",
+        "Total": "totalAll"
+    };
 
+    const segments = ["Whale", "Dolphin", "Minnow", "Total"];
+
+    segments.forEach(segment => {
+        const field = segmentToField[segment];
+
+        const seriesData = smoothedData
+            .filter(d => d[field] !== undefined && !isNaN(d[field]))
+            .map(d => ({
+                Age: d.Age,
+                value: d[field],
+                segment
+            }));
+
+        svg.append("g")
+            .selectAll("circle")
+            .data(seriesData)
+            .join("circle")
+                .attr("cx", d => x(d.Age))
+                .attr("cy", d => y(d.value))
+                .attr("r", segment === "Total" ? 10 : 8)
+                .attr("fill", "transparent")
+                .attr("stroke", "none")
+                .attr("pointer-events", "all")
+                //hover tool tips
+                .on("mouseover", (event, d) => {
+                    tooltip
+                        .style("opacity", 1)
+                        .html(
+                            `<strong>Segment:</strong> ${d.segment}<br/>
+                             <strong>Age:</strong> ${d.Age}<br/>
+                             <strong>Moving Avg:</strong> $${formatDollar(d.value)}`
+                        );
+                })
+                .on("mousemove", (event) => {
+                    const xPos = event.clientX + window.scrollX;
+                    const yPos = event.clientY + window.scrollY;
+                    tooltip
+                        .style("left", (xPos + 12) + "px")
+                        .style("top", (yPos - 28) + "px");
+                })
+                .on("mouseleave", () => {
+                    tooltip.style("opacity", 0);
+                });
+    });
+
+    //whale line
     svg.append("path")
         .datum(smoothedData)
+        .attr("class", "line-series")
         .attr("fill", "none")
         .attr("stroke", color("Whale"))
         .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "4 2") //dashed line
-        .attr("stroke-opacity", 0.7)
-        .attr("d", lineWhale);
+        .attr("d", lineWhale)
+        .attr("data-segment-mark", "Whale")
+        .attr("data-default-opacity", 1);
 
+    //dolphin line
     svg.append("path")
         .datum(smoothedData)
+        .attr("class", "line-series")
         .attr("fill", "none")
         .attr("stroke", color("Dolphin"))
         .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "4 2")
-        .attr("stroke-opacity", 0.7)
-        .attr("d", lineDolphin);
+        .attr("d", lineDolphin)
+        .attr("data-segment-mark", "Dolphin")
+        .attr("data-default-opacity", 1);
 
+    //minnow line
     svg.append("path")
         .datum(smoothedData)
+        .attr("class", "line-series")
         .attr("fill", "none")
         .attr("stroke", color("Minnow"))
         .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "4 2")
-        .attr("stroke-opacity", 0.7)
-        .attr("d", lineMinnow);
+        .attr("d", lineMinnow)
+        .attr("data-segment-mark", "Minnow")
+        .attr("data-default-opacity", 1);
 
+    //total line (dashed)
     svg.append("path")
         .datum(smoothedData)
+        .attr("class", "line-series")
         .attr("fill", "none")
         .attr("stroke", color("Total"))
-        .attr("stroke-width", 3)
-        .attr("stroke-opacity", 1.0)
-        .attr("d", lineTotal);
+        .attr("stroke-dasharray", "4 2")
+        .attr("stroke-width", 1.5)
+        .attr("d", lineTotal)
+        .attr("data-segment-mark", "Total")
+        .attr("data-default-opacity", 1);
+
 }
